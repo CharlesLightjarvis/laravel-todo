@@ -7,6 +7,7 @@ use CharlesLightjarvis\Todo\Enums\TodoStatusEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -16,14 +17,14 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string|null $notes
  * @property TodoStatusEnum $status
  * @property TodoPriorityEnum $priority
- * @property \Illuminate\Support\Carbon|null $due_at
- * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property Carbon|null $due_at
+ * @property Carbon|null $completed_at
  * @property string|null $creator_type
  * @property int|null $creator_id
- * @property \Illuminate\Support\Carbon $created_at
- * @property \Illuminate\Support\Carbon $updated_at
- * @property-read \Illuminate\Database\Eloquent\Model $todoable
- * @property-read \Illuminate\Database\Eloquent\Model|null $creator
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property-read Model $todoable
+ * @property-read Model|null $creator
  */
 class Todo extends Model
 {
