@@ -1,68 +1,168 @@
-# :package_description
+# Laravel Todo
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/:vendor_slug/:package_slug/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/:vendor_slug/:package_slug/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-<!--delete-->
----
-This repo can be used to scaffold a Laravel package. Follow these steps to get started:
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/charleslightjarvis/laravel-todo.svg?style=flat-square)](https://packagist.org/packages/charleslightjarvis/laravel-todo)
+[![Total Downloads](https://img.shields.io/packagist/dt/charleslightjarvis/laravel-todo.svg?style=flat-square)](https://packagist.org/packages/charleslightjarvis/laravel-todo)
+[![License](https://img.shields.io/packagist/l/charleslightjarvis/laravel-todo.svg?style=flat-square)](LICENSE.md)
 
-1. Press the "Use this template" button at the top of this repo to create a new repo with the contents of this skeleton.
-2. Run "php ./configure.php" to run a script that will replace all placeholders throughout all the files.
-3. Have fun creating your package.
-4. If you need help creating a package, consider picking up our <a href="https://laravelpackage.training">Laravel Package Training</a> video course.
----
-<!--/delete-->
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
+Attach todo lists to any Eloquent model in your Laravel application.
 
-## Support us
+## Features
 
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/:package_name.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/:package_name)
+- ✅ Polymorphic relationship – attach todos to any model (`User`, `Project`, `Team`, etc.)
+- ✅ Fluent API via Facade or Trait
+- ✅ Built-in scopes: `pending()`, `completed()`, `overdue()`, `highPriority()`, `dueToday()`
+- ✅ Status management: `pending`, `in_progress`, `completed`, `cancelled`
+- ✅ Priority levels: `low`, `medium`, `high`
+- ✅ Tracks who created each todo (polymorphic `creator` relation)
+- ✅ Zero UI – backend only, integrate however you want
 
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
+## Requirements
 
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+- PHP 8.2 or higher
+- Laravel 11.0 or higher
 
 ## Installation
 
-You can install the package via composer:
+Install the package via Composer:
 
 ```bash
-composer require :vendor_slug/:package_slug
+composer require charleslightjarvis/laravel-todo
 ```
 
-You can publish and run the migrations with:
+Publish the migration file:
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-migrations"
+php artisan vendor:publish --tag="todo-migrations"
+```
+
+Run the migrations:
+
+```bash
 php artisan migrate
 ```
 
-You can publish the config file with:
+Publish the configuration file (optional):
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-config"
+php artisan vendor:publish --tag="todo-config"
 ```
 
-This is the contents of the published config file:
+## Configuration
+
+The config file `config/todo.php` allows you to customize:
 
 ```php
 return [
+    'prune_after_days' => 30,
+
+    'models' => [
+        'todo' => CharlesLightjarvis\Todo\Models\Todo::class,
+    ],
+
+    'todo_morph_key' => 'todoable_id',
 ];
-```
-
-Optionally, you can publish the views using
-
-```bash
-php artisan vendor:publish --tag=":package_slug-views"
 ```
 
 ## Usage
 
+### 1. Add the trait to your model
+
 ```php
-$:variable = new VendorName\Skeleton();
-echo $:variable->echoPhrase('Hello, VendorName!');
+use CharlesLightjarvis\Todo\Traits\HasTodos;
+
+class User extends Model
+{
+    use HasTodos;
+}
+
+class Project extends Model
+{
+    use HasTodos;
+}
+```
+
+### 2. Basic operations
+
+```php
+// Create a todo on a model
+$user->todos()->create([
+    'title' => 'Finish the report',
+    'priority' => 'high',
+    'due_at' => now()->addDays(3),
+]);
+
+// Retrieve todos
+$pendingTodos = $user->todos()->pending()->get();
+$urgentTodos  = $user->todos()->highPriority()->get();
+$overdueTodos = $user->todos()->overdue()->get();
+$todayTodos   = $user->todos()->dueToday()->get();
+
+// Complete or cancel
+$user->completeTodo($todo);
+$user->cancelTodo($todo);
+```
+
+### 3. Using the Facade
+
+```php
+use Todo;
+
+// Create a todo for any model
+$todo = Todo::for($project)->create([
+    'title'    => 'Fix navigation bug',
+    'priority' => 'high',
+]);
+
+// Query todos for a model
+$pending = Todo::for($team)->pending()->get();
+$count   = Todo::for($user)->completed()->count();
+```
+
+### 4. Tracking who created a todo
+
+```php
+// The trait also provides a `createdTodos` relation
+$user = auth()->user();
+$todosCreatedByMe = $user->createdTodos;
+
+// Set creator manually when needed
+$todo = $project->todos()->create([
+    'title'        => 'Review PR',
+    'creator_type' => $user->getMorphClass(),
+    'creator_id'   => $user->id,
+]);
+```
+
+## Available Scopes
+
+| Scope            | Description                          |
+| ---------------- | ------------------------------------ |
+| `pending()`      | Status = `pending`                   |
+| `inProgress()`   | Status = `in_progress`               |
+| `completed()`    | Status = `completed`                 |
+| `cancelled()`    | Status = `cancelled`                 |
+| `overdue()`      | Not completed + `due_at` in the past |
+| `highPriority()` | Priority = `high`                    |
+| `dueToday()`     | `due_at` is today                    |
+
+## Enums
+
+The package provides two enums for type safety:
+
+```php
+use CharlesLightjarvis\Todo\Enums\TodoStatusEnum;
+use CharlesLightjarvis\Todo\Enums\TodoPriorityEnum;
+
+// Status values
+TodoStatusEnum::PENDING->value;      // 'pending'
+TodoStatusEnum::IN_PROGRESS->value;  // 'in_progress'
+TodoStatusEnum::COMPLETED->value;    // 'completed'
+TodoStatusEnum::CANCELLED->value;    // 'cancelled'
+
+// Priority values
+TodoPriorityEnum::LOW->value;    // 'low'
+TodoPriorityEnum::MEDIUM->value; // 'medium'
+TodoPriorityEnum::HIGH->value;   // 'high'
 ```
 
 ## Testing
@@ -77,15 +177,15 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Contributing
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
 
-## Security Vulnerabilities
+## Security
 
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
+If you discover any security-related issues, please email charlestagne55@gmail.com instead of using the issue tracker.
 
 ## Credits
 
-- [:author_name](https://github.com/:author_username)
+- [Charles Lightjarvis](https://github.com/CharlesLightjarvis)
 - [All Contributors](../../contributors)
 
 ## License
