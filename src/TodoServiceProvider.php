@@ -9,6 +9,8 @@ class TodoServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->mergeConfigFrom(__DIR__.'/../config/todo.php', 'todo');
+
         $this->app->bind(TodoHandler::class, Todo::class);
 
         $this->app->singleton('todo', function ($app) {

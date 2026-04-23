@@ -6,6 +6,25 @@
 
 Attach todo lists to any Eloquent model in your Laravel application.
 
+## The Problem
+
+In a Laravel application, multiple entities (`User`, `Project`, `Team`, `Invoice`...) often need their own todo list. Without a package, you have to:
+
+- Create a separate table for each entity type (`user_todos`, `project_todos`, `team_todos`...)
+- Duplicate models, scopes, and relationships
+- Maintain the same logic across multiple places
+- No unified API to interact with todos
+
+## The Solution
+
+`laravel-todo` lets you attach todos to **any Eloquent model** with a single trait. One table, one logic, every model.
+
+- ✅ Attach todos to `User`, `Project`, `Team`, `Invoice` — anything
+- ✅ Fluent API via Trait and Facade
+- ✅ Built-in scopes: `pending`, `completed`, `overdue`, `highPriority`, `dueToday`
+- ✅ Polymorphic creator support (tracks who created the todo)
+- ✅ Zero duplication
+
 ## Features
 
 - ✅ Polymorphic relationship – attach todos to any model (`User`, `Project`, `Team`, etc.)
@@ -67,6 +86,8 @@ return [
 
 ### 1. Add the trait to your model
 
+Add `HasTodos` to any Eloquent model you want to attach todos to:
+
 ```php
 use CharlesLightjarvis\Todo\Traits\HasTodos;
 
@@ -81,56 +102,118 @@ class Project extends Model
 }
 ```
 
-### 2. Basic operations
+### 2. Creating todos via the Trait
+
+Use the `todos()` relation directly on any model that uses `HasTodos`:
 
 ```php
-// Create a todo on a model
-$user->todos()->create([
-    'title' => 'Finish the report',
+$user = User::find(1);
+
+// Create a todo on the model
+$todo = $user->todos()->create([
+    'title'    => 'Buy groceries',
     'priority' => 'high',
-    'due_at' => now()->addDays(3),
+    'due_at'   => now()->addDays(2),
 ]);
 
-// Retrieve todos
-$pendingTodos = $user->todos()->pending()->get();
-$urgentTodos  = $user->todos()->highPriority()->get();
-$overdueTodos = $user->todos()->overdue()->get();
-$todayTodos   = $user->todos()->dueToday()->get();
-
-// Complete or cancel
-$user->completeTodo($todo);
-$user->cancelTodo($todo);
+// Create with addTodo() — optionally assign a creator
+$todo = $user->addTodo([
+    'title'    => 'Finish the report',
+    'priority' => 'medium',
+], $creator);
 ```
 
-### 3. Using the Facade
+### 3. Querying todos via the Trait
+
+All built-in scopes are available directly on the relation:
 
 ```php
-use Todo;
+$user->todos()->pending()->get();
+$user->todos()->inProgress()->get();
+$user->todos()->completed()->get();
+$user->todos()->cancelled()->get();
+
+$user->todos()->highPriority()->get();
+$user->todos()->overdue()->get();
+$user->todos()->dueToday()->get();
+
+// Scopes can be chained
+$user->todos()->pending()->highPriority()->get();
+```
+
+### 4. Creating and querying todos via the Facade
+
+The `Todo` facade provides a model-agnostic API — useful when you do not have a direct reference to the owning model instance:
+
+```php
+use CharlesLightjarvis\Todo\Facades\Todo;
 
 // Create a todo for any model
-$todo = Todo::for($project)->create([
+$todo = Todo::createFor($user, [
     'title'    => 'Fix navigation bug',
     'priority' => 'high',
+    'due_at'   => now()->addWeek(),
 ]);
 
-// Query todos for a model
-$pending = Todo::for($team)->pending()->get();
-$count   = Todo::for($user)->completed()->count();
+// Scope queries to a specific model
+Todo::for($user)->pending()->get();
+Todo::for($user)->highPriority()->get();
+Todo::for($user)->overdue()->get();
+
+// Count
+Todo::for($user)->count();
+Todo::for($user)->pending()->count();
+Todo::for($user)->completed()->count();
 ```
 
-### 4. Tracking who created a todo
+### 5. Completing and cancelling todos
+
+Both methods are ownership-aware — they silently return `false` if the todo does not belong to the model:
 
 ```php
-// The trait also provides a `createdTodos` relation
-$user = auth()->user();
-$todosCreatedByMe = $user->createdTodos;
+// Complete a todo
+$user->completeTodo($todo);
 
-// Set creator manually when needed
+// After completion
+$todo->refresh();
+$todo->status->value;  // 'completed'
+$todo->completed_at;   // Carbon timestamp
+
+// Cancel a todo
+$user->cancelTodo($todo);
+
+$todo->refresh();
+$todo->status->value;  // 'cancelled'
+
+// Another user cannot complete a todo they don't own
+$otherUser->completeTodo($todo); // returns false, status unchanged
+```
+
+### 6. Accessing todo relations
+
+```php
+// All todos attached to the model
+$user->todos;
+
+// All todos created by the model (via the creator relation)
+$user->createdTodos;
+```
+
+### 7. Tracking who created a todo
+
+```php
+// Via addTodo — pass the creator as the second argument
+$todo = $project->addTodo(['title' => 'Review PR'], auth()->user());
+
+// Or set creator fields manually
 $todo = $project->todos()->create([
     'title'        => 'Review PR',
     'creator_type' => $user->getMorphClass(),
     'creator_id'   => $user->id,
 ]);
+
+// Resolve the creator
+$todo->creator; // returns the creator model
 ```
 
 ## Available Scopes
