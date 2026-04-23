@@ -1,0 +1,17 @@
+name: Notify Packagist
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Packagist of update
+        run: |
+          curl -XPOST -H "content-type:application/json" \
+            "https://packagist.org/api/update-package?username=CharlesLightjarvis&apiToken=${{ secrets.PACKAGIST_TOKEN }}" \
+            -d '{"repository":{"url":"https://github.com/CharlesLightjarvis/laravel-todo"}}'
